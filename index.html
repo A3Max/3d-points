@@ -1,0 +1,1262 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>3D Audio Visualizer</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Urbanist:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+        "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+      }
+    }
+  </script>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    html, body {
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+    }
+    body {
+      font-family: 'Urbanist', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: #000000;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+    #controls {
+      position: fixed;
+      top: 16px;
+      left: 16px;
+      background: rgba(28, 28, 30, 0.72);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      padding: 14px;
+      border-radius: 14px;
+      color: #f5f5f7;
+      z-index: 100;
+      width: 320px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+      overflow-y: auto;
+      overflow-x: hidden;
+      max-height: calc(100vh - 32px);
+      transition: opacity 0.3s ease;
+    }
+    #controls h3 {
+      margin-bottom: 12px;
+      font-size: 16px;
+      font-weight: 600;
+      color: #ffffff;
+      letter-spacing: -0.5px;
+    }
+    .control-section {
+      margin-bottom: 14px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    }
+    .control-section:last-child {
+      border-bottom: none;
+      margin-bottom: 0;
+      padding-bottom: 0;
+    }
+    .section-title {
+      font-size: 13px;
+      font-weight: 700;
+      color: #ffffff;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 10px;
+    }
+    .control-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+    .control-grid .control-group {
+      margin-bottom: 0;
+    }
+    .control-group {
+      margin-bottom: 6px;
+    }
+    .control-group:has(#audioFile),
+    .control-group:has(#videoFile) {
+      margin-bottom: 8px;
+    }
+    .control-group:has(#playBtn),
+    .control-group:has(#videoPlayBtn) {
+      margin-bottom: 8px;
+    }
+    .control-group:has(#colorProfile) {
+      margin-bottom: 10px;
+    }
+    .control-group:last-child {
+      margin-bottom: 0;
+    }
+    .control-group label {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      font-size: 12px;
+      font-weight: 400;
+      color: #d1d1d6;
+    }
+    .control-group label span:first-child {
+      font-size: 11px;
+      font-weight: 500;
+      color: #a1a1a6;
+    }
+    .slider-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .slider-row input[type="range"] {
+      flex: 1;
+    }
+    .slider-value {
+      min-width: 48px;
+      padding: 4px 10px;
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 8px;
+      font-size: 12px;
+      font-weight: 600;
+      color: #ffffff;
+      text-align: center;
+      box-sizing: border-box;
+      width: 48px;
+      -moz-appearance: textfield;
+    }
+    .slider-value:focus {
+      outline: none;
+      border-color: rgba(0, 122, 255, 0.5);
+      background: rgba(255, 255, 255, 0.12);
+    }
+    .slider-value::-webkit-inner-spin-button,
+    .slider-value::-webkit-outer-spin-button {
+      -webkit-appearance: none;
+      margin: 0;
+    }
+    .slider-value::-moz-number-spin-box {
+      display: none;
+    }
+    .control-group span:first-child {
+      color: #ffffff;
+      font-weight: 600;
+      letter-spacing: 0.2px;
+    }
+    .control-group input[type="range"] {
+      width: 100%;
+      height: 4px;
+      -webkit-appearance: none;
+      appearance: none;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 2px;
+      cursor: pointer;
+      outline: none;
+    }
+    .control-group input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 18px;
+      height: 18px;
+      background: #f5f5f7;
+      border-radius: 50%;
+      cursor: pointer;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+      transition: transform 0.15s ease, box-shadow 0.15s ease;
+    }
+    .control-group input[type="range"]::-webkit-slider-thumb:hover {
+      transform: scale(1.1);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+    }
+    .control-group input[type="range"]::-moz-range-thumb {
+      width: 18px;
+      height: 18px;
+      background: #f5f5f7;
+      border-radius: 50%;
+      cursor: pointer;
+      border: none;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+      transition: transform 0.15s ease, box-shadow 0.15s ease;
+    }
+    .control-group input[type="range"]::-moz-range-thumb:hover {
+      transform: scale(1.1);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+    }
+    .control-group input[type="file"] {
+      display: none;
+    }
+    .file-input-wrapper {
+      position: relative;
+      width: 100%;
+    }
+    .file-input-button {
+      width: 100%;
+      padding: 10px 14px;
+      background: rgba(255, 255, 255, 0.08);
+      color: #ffffff;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 6px;
+      cursor: pointer;
+      font-family: 'Urbanist', -apple-system, BlinkMacSystemFont, sans-serif;
+      font-size: 13px;
+      font-weight: 600;
+      transition: all 0.2s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+    .file-input-button:hover {
+      background: rgba(255, 255, 255, 0.12);
+      border-color: rgba(255, 255, 255, 0.2);
+    }
+    .file-input-button.has-file {
+      background: rgba(0, 122, 255, 0.15);
+      border-color: rgba(0, 122, 255, 0.3);
+    }
+    .file-input-button.has-file:hover {
+      background: rgba(0, 122, 255, 0.2);
+      border-color: rgba(0, 122, 255, 0.4);
+    }
+    .file-input-icon {
+      width: 16px;
+      height: 16px;
+      opacity: 0.7;
+    }
+    .control-group select {
+      width: 100%;
+      padding: 8px 10px;
+      background: rgba(255, 255, 255, 0.05);
+      color: #ffffff;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 6px;
+      font-family: 'Urbanist', -apple-system, BlinkMacSystemFont, sans-serif;
+      font-size: 13px;
+      cursor: pointer;
+      outline: none;
+      transition: all 0.2s ease;
+    }
+    .control-group select:hover {
+      background: rgba(255, 255, 255, 0.08);
+      border-color: rgba(255, 255, 255, 0.2);
+    }
+    .control-group select:focus {
+      border-color: rgba(255, 255, 255, 0.3);
+    }
+    .control-group select option {
+      background: #1c1c1e;
+      color: #f5f5f7;
+    }
+    .gradient-editor {
+      background: rgba(0, 0, 0, 0.2);
+      border-radius: 8px;
+      padding: 12px;
+      margin-top: 8px;
+    }
+    .gradient-preview {
+      height: 40px;
+      border-radius: 6px;
+      margin-bottom: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    .gradient-stops {
+      position: relative;
+      height: 30px;
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 4px;
+      margin-bottom: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    .gradient-stop {
+      position: absolute;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      border: 2px solid #ffffff;
+      cursor: pointer;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+      transition: transform 0.15s ease, box-shadow 0.15s ease;
+    }
+    .gradient-stop:hover {
+      transform: translate(-50%, -50%) scale(1.2);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+    }
+    .gradient-stop.selected {
+      border-color: #007aff;
+      box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.3);
+    }
+    .gradient-stop-controls {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+    .gradient-stop-controls input[type="color"] {
+      width: 40px;
+      height: 32px;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      background: transparent;
+    }
+    .gradient-stop-controls input[type="range"] {
+      flex: 1;
+    }
+    .gradient-actions {
+      display: flex;
+      gap: 8px;
+    }
+    .gradient-actions button {
+      flex: 1;
+      padding: 8px 12px;
+      background: rgba(255, 255, 255, 0.08);
+      color: #ffffff;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 6px;
+      cursor: pointer;
+      font-family: 'Urbanist', -apple-system, BlinkMacSystemFont, sans-serif;
+      font-size: 12px;
+      font-weight: 600;
+      transition: all 0.2s ease;
+    }
+    .gradient-actions button:hover {
+      background: rgba(255, 255, 255, 0.12);
+    }
+    .gradient-actions button.danger {
+      background: rgba(255, 59, 48, 0.2);
+      border-color: rgba(255, 59, 48, 0.4);
+    }
+    .gradient-actions button.danger:hover {
+      background: rgba(255, 59, 48, 0.3);
+    }
+    .toggle-switch {
+      position: relative;
+      width: 52px;
+      height: 28px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 14px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    .toggle-switch:hover {
+      background: rgba(255, 255, 255, 0.15);
+      border-color: rgba(255, 255, 255, 0.2);
+    }
+    .toggle-switch input {
+      position: absolute;
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+    .toggle-slider {
+      position: absolute;
+      top: 2px;
+      left: 2px;
+      width: 22px;
+      height: 22px;
+      background: #f5f5f7;
+      border-radius: 50%;
+      transition: all 0.3s ease;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+    }
+    .toggle-switch input:checked + .toggle-slider {
+      transform: translateX(24px);
+      background: #007aff;
+    }
+    .toggle-switch input:checked {
+      background: rgba(0, 122, 255, 0.3);
+      border-color: rgba(0, 122, 255, 0.5);
+    }
+    .button-group {
+      display: flex;
+      gap: 6px;
+      margin-top: 4px;
+    }
+    .button-group button {
+      flex: 1;
+      padding: 8px 12px;
+      background: rgba(255, 255, 255, 0.08);
+      color: #ffffff;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 6px;
+      cursor: pointer;
+      font-family: 'Urbanist', -apple-system, BlinkMacSystemFont, sans-serif;
+      font-size: 13px;
+      font-weight: 600;
+      transition: all 0.2s ease;
+    }
+    .button-group button:hover {
+      background: rgba(255, 255, 255, 0.12);
+      border-color: rgba(255, 255, 255, 0.2);
+      transform: translateY(-1px);
+    }
+    .button-group button:active {
+      transform: translateY(0);
+    }
+    .button-group button.active {
+      background: rgba(0, 122, 255, 0.3);
+      border-color: rgba(0, 122, 255, 0.5);
+    }
+    #canvas-container {
+      width: 100vw;
+      height: 100vh;
+      position: fixed;
+      top: 0;
+      left: 0;
+      z-index: 1;
+      background: #000000;
+    }
+    #canvas-container canvas {
+      display: block;
+      position: absolute;
+      top: 0;
+      left: 0;
+    }
+    #timeline-panel {
+      position: fixed;
+      bottom: 16px;
+      left: 364px;
+      right: 16px;
+      background: rgba(28, 28, 30, 0.72);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      padding: 12px;
+      border-radius: 14px;
+      color: #f5f5f7;
+      z-index: 100;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+      max-height: 35vh;
+      overflow-y: auto;
+      pointer-events: auto;
+      transition: opacity 0.3s ease;
+    }
+    #timeline-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+    #timeline-header h4 {
+      font-size: 16px;
+      font-weight: 600;
+      color: #ffffff;
+      margin: 0;
+    }
+    #timeline-controls {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+    #timeline-controls button {
+      padding: 8px 14px;
+      background: rgba(255, 255, 255, 0.08);
+      color: #ffffff;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 6px;
+      cursor: pointer;
+      font-family: 'Urbanist', -apple-system, BlinkMacSystemFont, sans-serif;
+      font-size: 13px;
+      font-weight: 600;
+      transition: all 0.2s ease;
+    }
+    #timeline-controls button:hover {
+      background: rgba(255, 255, 255, 0.12);
+      border-color: rgba(255, 255, 255, 0.2);
+    }
+    #timeline-controls button.active {
+      background: rgba(0, 122, 255, 0.3);
+      border-color: rgba(0, 122, 255, 0.5);
+    }
+    #timeline-settings {
+      display: flex;
+      gap: 16px;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+    #timeline-settings label {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+      color: #d1d1d6;
+    }
+    #timeline-settings select {
+      padding: 6px 10px;
+      background: rgba(255, 255, 255, 0.05);
+      color: #ffffff;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 6px;
+      font-family: 'Urbanist', -apple-system, BlinkMacSystemFont, sans-serif;
+      font-size: 13px;
+      cursor: pointer;
+    }
+    #timeline-settings input[type="number"] {
+      padding: 6px 10px;
+      background: rgba(255, 255, 255, 0.05);
+      color: #ffffff;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 6px;
+      font-family: 'Urbanist', -apple-system, BlinkMacSystemFont, sans-serif;
+      font-size: 13px;
+      width: 80px;
+    }
+    #timeline-ruler {
+      position: relative;
+      height: 40px;
+      background: rgba(0, 0, 0, 0.3);
+      border-radius: 6px;
+      margin-bottom: 8px;
+      overflow: hidden;
+    }
+    #timeline-ruler-track {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      cursor: pointer;
+    }
+    #timeline-playhead {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      width: 2px;
+      background: #ff3b30;
+      pointer-events: auto;
+      cursor: ew-resize;
+      z-index: 10;
+    }
+    #timeline-playhead::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: -5px;
+      width: 12px;
+      height: 12px;
+      background: #ff3b30;
+      border-radius: 2px;
+      transform: rotate(45deg);
+    }
+    #timeline-playhead::after {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: -8px;
+      right: -8px;
+      bottom: 0;
+    }
+    #timeline-frame-lines {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      pointer-events: none;
+      z-index: 1;
+    }
+    .timeline-frame-line {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      width: 1px;
+      background: rgba(255, 255, 255, 0.05);
+    }
+    .timeline-frame-line.major {
+      background: rgba(255, 255, 255, 0.1);
+    }
+    .timeline-keyframe {
+      position: absolute;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      width: 12px;
+      height: 12px;
+      background: #007aff;
+      border: 2px solid #ffffff;
+      border-radius: 2px;
+      cursor: pointer;
+      z-index: 5;
+      transition: all 0.2s ease;
+    }
+    .timeline-keyframe:hover {
+      transform: translate(-50%, -50%) scale(1.2);
+    }
+    .timeline-keyframe.selected {
+      background: #ffcc00;
+      border-color: #ffffff;
+      box-shadow: 0 0 8px rgba(255, 204, 0, 0.5);
+    }
+    #timeline-time-display {
+      font-size: 13px;
+      color: #d1d1d6;
+      text-align: center;
+      margin-bottom: 8px;
+    }
+    #keyframe-editor {
+      background: rgba(0, 0, 0, 0.2);
+      border-radius: 6px;
+      margin-top: 8px;
+      overflow: hidden;
+      transition: all 0.3s ease;
+    }
+    #keyframe-editor.collapsed .keyframe-content {
+      display: none;
+    }
+    #keyframe-editor-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px;
+      cursor: pointer;
+      user-select: none;
+      min-height: 44px;
+    }
+    #keyframe-editor-header:hover {
+      background: rgba(255, 255, 255, 0.05);
+    }
+    #keyframe-editor-header h5 {
+      font-size: 14px;
+      font-weight: 600;
+      color: #ffffff;
+      margin: 0;
+      line-height: 1;
+    }
+    #keyframe-editor-toggle {
+      font-size: 18px;
+      color: #86868b;
+      transition: transform 0.3s ease;
+    }
+    #keyframe-editor.collapsed #keyframe-editor-toggle {
+      transform: rotate(-90deg);
+    }
+    .keyframe-content {
+      padding: 12px;
+    }
+    #keyframe-editor h5 {
+      font-size: 14px;
+      font-weight: 600;
+      color: #ffffff;
+      margin: 0 0 10px 0;
+    }
+    #keyframe-editor .keyframe-field {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 8px;
+      align-items: center;
+    }
+    #keyframe-editor .keyframe-field label {
+      font-size: 12px;
+      color: #d1d1d6;
+      min-width: 60px;
+    }
+    #keyframe-editor .keyframe-field input {
+      flex: 1;
+      padding: 6px 8px;
+      background: rgba(255, 255, 255, 0.05);
+      color: #ffffff;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 4px;
+      font-family: 'Urbanist', -apple-system, BlinkMacSystemFont, sans-serif;
+      font-size: 12px;
+    }
+    #keyframe-editor .keyframe-actions {
+      display: flex;
+      gap: 8px;
+      margin-top: 10px;
+    }
+    #keyframe-editor .keyframe-actions button {
+      flex: 1;
+      padding: 8px 12px;
+      background: rgba(255, 255, 255, 0.08);
+      color: #ffffff;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 6px;
+      cursor: pointer;
+      font-family: 'Urbanist', -apple-system, BlinkMacSystemFont, sans-serif;
+      font-size: 12px;
+      font-weight: 600;
+      transition: all 0.2s ease;
+    }
+    #keyframe-editor .keyframe-actions button:hover {
+      background: rgba(255, 255, 255, 0.12);
+    }
+    #keyframe-editor .keyframe-actions button.danger {
+      background: rgba(255, 59, 48, 0.2);
+      border-color: rgba(255, 59, 48, 0.4);
+    }
+    #keyframe-editor .keyframe-actions button.danger:hover {
+      background: rgba(255, 59, 48, 0.3);
+    }
+    .keyframe-gradient-stop {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+      margin-bottom: 6px;
+      padding: 4px;
+      background: rgba(255, 255, 255, 0.03);
+      border-radius: 4px;
+    }
+    .keyframe-gradient-stop input[type="color"] {
+      width: 32px;
+      height: 24px;
+      border: none;
+      border-radius: 3px;
+      cursor: pointer;
+      background: transparent;
+    }
+    .keyframe-gradient-stop input[type="number"] {
+      flex: 1;
+      padding: 4px 6px;
+      background: rgba(255, 255, 255, 0.05);
+      color: #ffffff;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 3px;
+      font-family: 'Urbanist', -apple-system, BlinkMacSystemFont, sans-serif;
+      font-size: 11px;
+    }
+    .keyframe-gradient-stop button {
+      width: 24px;
+      height: 24px;
+      background: rgba(255, 59, 48, 0.2);
+      color: #ffffff;
+      border: 1px solid rgba(255, 59, 48, 0.4);
+      border-radius: 3px;
+      cursor: pointer;
+      font-size: 14px;
+      line-height: 1;
+      padding: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .keyframe-gradient-stop button:hover {
+      background: rgba(255, 59, 48, 0.3);
+    }
+    #ui-toggle-btn {
+      position: fixed;
+      top: 16px;
+      right: 16px;
+      padding: 10px 16px;
+      background: rgba(28, 28, 30, 0.72);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      color: #f5f5f7;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 8px;
+      cursor: pointer;
+      font-family: 'Urbanist', -apple-system, BlinkMacSystemFont, sans-serif;
+      font-size: 13px;
+      font-weight: 600;
+      z-index: 200;
+      opacity: 0;
+      transition: opacity 0.3s ease;
+      pointer-events: none;
+    }
+    #ui-toggle-btn.visible {
+      opacity: 1;
+      pointer-events: auto;
+    }
+    #ui-toggle-btn:hover {
+      background: rgba(255, 255, 255, 0.12);
+    }
+    body.ui-hidden #controls,
+    body.ui-hidden #timeline-panel {
+      opacity: 0;
+      pointer-events: none;
+    }
+  </style>
+</head>
+<body>
+  <div id="canvas-container"></div>
+  <button id="ui-toggle-btn">Hide UI</button>
+  <div id="controls">
+    <h3>Controls</h3>
+
+    <div class="control-section">
+      <div class="section-title">Media</div>
+      <div class="control-group">
+        <label>
+          <span>Audio</span>
+          <div class="file-input-wrapper">
+            <input type="file" id="audioFile" accept="audio/*">
+            <button class="file-input-button" id="audioFileButton">
+              <svg class="file-input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M9 18V5l12-2v13"/>
+                <circle cx="6" cy="18" r="3"/>
+                <circle cx="18" cy="16" r="3"/>
+              </svg>
+              <span>Choose Audio File</span>
+            </button>
+          </div>
+        </label>
+      </div>
+      <div class="control-group">
+        <div class="button-group">
+          <button id="playBtn">Play</button>
+          <button id="pauseBtn">Pause</button>
+        </div>
+      </div>
+      <div class="control-group">
+        <label>
+          <span>Video</span>
+          <div class="file-input-wrapper">
+            <input type="file" id="videoFile" accept="video/*">
+            <button class="file-input-button" id="videoFileButton">
+              <svg class="file-input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="2" y="2" width="20" height="20" rx="2.18" ry="2.18"/>
+                <line x1="7" y1="2" x2="7" y2="22"/>
+                <line x1="17" y1="2" x2="17" y2="22"/>
+                <line x1="2" y1="12" x2="22" y2="12"/>
+                <line x1="2" y1="7" x2="7" y2="7"/>
+                <line x1="2" y1="17" x2="7" y2="17"/>
+                <line x1="17" y1="17" x2="22" y2="17"/>
+                <line x1="17" y1="7" x2="22" y2="7"/>
+              </svg>
+              <span>Choose Video File</span>
+            </button>
+          </div>
+        </label>
+      </div>
+      <div class="control-group">
+        <div class="button-group">
+          <button id="videoPlayBtn">Play</button>
+          <button id="videoPauseBtn">Pause</button>
+          <button id="invertVideoBtn">Invert</button>
+        </div>
+      </div>
+      <div class="control-group">
+        <label>
+          <span>Impact</span>
+          <div class="slider-row">
+            <input type="range" id="videoImpact" min="0" max="50" step="1" value="0">
+            <input type="number" class="slider-value" id="videoImpactValue" value="0" min="0" max="50">
+          </div>
+        </label>
+      </div>
+    </div>
+
+    <div class="control-section">
+      <div class="section-title">Amplitude</div>
+      <div class="control-grid">
+        <div class="control-group">
+          <label>
+            <span>Base</span>
+            <div class="slider-row">
+              <input type="range" id="baseAmplitude" min="0" max="20" step="1" value="16">
+              <input type="number" class="slider-value" id="baseAmplitudeValue" value="16" min="0" max="20">
+            </div>
+          </label>
+        </div>
+        <div class="control-group">
+          <label>
+            <span>Audio</span>
+            <div class="slider-row">
+              <input type="range" id="audioAmplitude" min="0" max="50" step="1" value="20">
+              <input type="number" class="slider-value" id="audioAmplitudeValue" value="20" min="0" max="50">
+            </div>
+          </label>
+        </div>
+      </div>
+    </div>
+
+    <div class="control-section">
+      <div class="section-title">Particles</div>
+      <div class="control-grid">
+        <div class="control-group">
+          <label>
+            <span>Size</span>
+            <div class="slider-row">
+              <input type="range" id="particleSize" min="5" max="100" step="5" value="25">
+              <input type="number" class="slider-value" id="particleSizeValue" value="25" min="5" max="100">
+            </div>
+          </label>
+        </div>
+        <div class="control-group">
+          <label>
+            <span>Count</span>
+            <div class="slider-row">
+              <input type="range" id="waveCount" min="1" max="8" step="1" value="6">
+              <input type="number" class="slider-value" id="waveCountValue" value="6" min="1" max="8">
+            </div>
+          </label>
+        </div>
+      </div>
+      <div class="control-group">
+        <label>
+          <span>Max Height Bound</span>
+          <div class="slider-row">
+            <input type="range" id="maxHeightBound" min="5" max="200" step="5" value="50">
+            <input type="number" class="slider-value" id="maxHeightBoundValue" value="50" min="5" max="200">
+          </div>
+        </label>
+      </div>
+      <div class="control-grid">
+        <div class="control-group">
+          <label>
+            <span>Density</span>
+            <div class="slider-row">
+              <input type="range" id="waveDensity" min="5" max="100" step="5" value="60">
+              <input type="number" class="slider-value" id="waveDensityValue" value="60" min="5" max="100">
+            </div>
+          </label>
+        </div>
+        <div class="control-group">
+          <label>
+            <span>Speed</span>
+            <div class="slider-row">
+              <input type="range" id="waveSpeed" min="1" max="50" step="1" value="16">
+              <input type="number" class="slider-value" id="waveSpeedValue" value="16" min="1" max="50">
+            </div>
+          </label>
+        </div>
+      </div>
+    </div>
+
+    <div class="control-section">
+      <div class="section-title">Grid</div>
+      <div class="control-group">
+        <label>
+          <span>Repetitions</span>
+          <div class="slider-row">
+            <input type="range" id="gridRepetitions" min="1" max="5" step="1" value="1">
+            <input type="number" class="slider-value" id="gridRepetitionsValue" value="1" min="1" max="5">
+          </div>
+        </label>
+      </div>
+      <div class="control-grid">
+        <div class="control-group">
+          <label>
+            <span>Offset X</span>
+            <div class="slider-row">
+              <input type="range" id="gridOffsetX" min="-50" max="50" step="1" value="15">
+              <input type="number" class="slider-value" id="gridOffsetXValue" value="15" min="-50" max="50">
+            </div>
+          </label>
+        </div>
+        <div class="control-group">
+          <label>
+            <span>Offset Z</span>
+            <div class="slider-row">
+              <input type="range" id="gridOffsetZ" min="-50" max="50" step="1" value="0">
+              <input type="number" class="slider-value" id="gridOffsetZValue" value="0" min="-50" max="50">
+            </div>
+          </label>
+        </div>
+      </div>
+      <div class="control-grid">
+        <div class="control-group">
+          <label>
+            <span>True X</span>
+            <div class="slider-row">
+              <input type="range" id="trueOffsetX" min="-50" max="50" step="1" value="0">
+              <input type="number" class="slider-value" id="trueOffsetXValue" value="0" min="-50" max="50">
+            </div>
+          </label>
+        </div>
+        <div class="control-group">
+          <label>
+            <span>True Z</span>
+            <div class="slider-row">
+              <input type="range" id="trueOffsetZ" min="-50" max="50" step="1" value="0">
+              <input type="number" class="slider-value" id="trueOffsetZValue" value="0" min="-50" max="50">
+            </div>
+          </label>
+        </div>
+      </div>
+    </div>
+
+    <div class="control-section">
+      <div class="section-title">Camera</div>
+      <div class="control-group">
+        <label>
+          <span>Field of View</span>
+          <div class="slider-row">
+            <input type="range" id="fov" min="30" max="120" step="1" value="75">
+            <input type="number" class="slider-value" id="fovValue" value="75" min="30" max="120">
+          </div>
+        </label>
+      </div>
+      <div class="control-grid">
+        <div class="control-group">
+          <label>
+            <span>Roll</span>
+            <div class="slider-row">
+              <input type="range" id="camRoll" min="-100" max="100" step="1" value="0">
+              <input type="number" class="slider-value" id="camRollValue" value="0" min="-100" max="100">
+            </div>
+          </label>
+        </div>
+        <div class="control-group">
+          <label>
+            <span>Shake</span>
+            <div class="slider-row">
+              <input type="range" id="camShake" min="0" max="50" step="1" value="0">
+              <input type="number" class="slider-value" id="camShakeValue" value="0" min="0" max="50">
+            </div>
+          </label>
+        </div>
+      </div>
+      <div class="control-group">
+        <label>
+          <span>Dolly</span>
+          <div class="slider-row">
+            <input type="range" id="camDolly" min="-50" max="50" step="1" value="0">
+            <input type="number" class="slider-value" id="camDollyValue" value="0" min="-50" max="50">
+          </div>
+        </label>
+      </div>
+      <div class="control-group">
+        <div class="button-group">
+          <button id="autoRotateXBtn">Rotate X</button>
+          <button id="autoRotateYBtn">Rotate Y</button>
+          <button id="resetRotationBtn">Reset</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="control-section">
+      <div class="section-title">Color</div>
+      <div class="control-group">
+        <label>
+          <span>Profile</span>
+          <select id="colorProfile"></select>
+        </label>
+      </div>
+      <div class="control-group">
+        <label>
+          <span>Custom Gradient</span>
+          <div class="gradient-editor" style="display: none;">
+            <div class="gradient-preview" id="gradientPreview"></div>
+            <div class="gradient-stops" id="gradientStops"></div>
+            <div class="gradient-stop-controls" id="gradientStopControls" style="display: none;">
+              <input type="color" id="gradientStopColor" value="#00ff88">
+              <input type="range" id="gradientStopPosition" min="0" max="100" step="1" value="50">
+              <input type="number" class="slider-value" id="gradientStopPositionValue" value="50" min="0" max="100" style="width: 48px;">
+            </div>
+            <div class="gradient-actions">
+              <button id="gradientAddStop">+ Add Color</button>
+              <button id="gradientDeleteStop" class="danger">- Delete</button>
+            </div>
+            <div class="gradient-actions" style="margin-top: 8px;">
+              <button id="savePresetBtn">💾 Save as Preset</button>
+              <button id="deletePresetBtn" class="danger" style="display: none;">🗑 Delete Preset</button>
+            </div>
+          </div>
+        </label>
+      </div>
+    </div>
+  </div>
+  <div id="timeline-panel">
+    <div id="timeline-header">
+      <h4>Timeline</h4>
+      <div id="timeline-controls">
+        <button id="timelineJumpStart">⏮</button>
+        <button id="timelinePlayPause">▶ Play</button>
+        <button id="timelineStop">⏹</button>
+        <button id="timelineJumpEnd">⏭</button>
+        <button id="timelineAddKeyframe">+ Keyframe</button>
+        <button id="timelineDeleteKeyframe" style="display: none;">- Delete</button>
+        <button id="timelineSave">Save</button>
+        <button id="timelineLoad">Load</button>
+      </div>
+    </div>
+    <div id="timeline-settings">
+      <label>
+        FPS:
+        <select id="timelineFps">
+          <option value="24">24</option>
+          <option value="25">25</option>
+          <option value="30" selected>30</option>
+          <option value="48">48</option>
+          <option value="50">50</option>
+          <option value="60">60</option>
+        </select>
+      </label>
+      <label>
+        Duration (s):
+        <input type="number" id="timelineDuration" min="1" max="300" value="10" step="1">
+      </label>
+      <label>
+        <input type="checkbox" id="timelineLoop"> Loop
+      </label>
+      <label>
+        <input type="checkbox" id="timelineLockControls" checked> Lock Controls
+      </label>
+    </div>
+    <div id="timeline-time-display">Frame: 0 / 300 | Time: 0.00s / 10.00s</div>
+    <div id="timeline-ruler">
+      <div id="timeline-frame-lines"></div>
+      <div id="timeline-ruler-track"></div>
+      <div id="timeline-playhead"></div>
+    </div>
+    <div id="keyframe-editor" class="collapsed">
+      <div id="keyframe-editor-header">
+        <h5>Keyframe Editor</h5>
+        <span id="keyframe-editor-toggle">▼</span>
+      </div>
+      <div class="keyframe-content">
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+          <div class="keyframe-field">
+            <label>Time (s):</label>
+            <input type="number" id="keyframeTime" step="0.01" min="0">
+          </div>
+          <div class="keyframe-field">
+            <label>Easing:</label>
+            <select id="keyframeEasing">
+              <option value="linear">Linear</option>
+              <option value="easeInOut">Ease In/Out</option>
+            </select>
+          </div>
+        </div>
+        <div style="margin: 8px 0; padding: 8px; background: rgba(0,0,0,0.2); border-radius: 4px;">
+          <div style="font-size: 11px; color: #86868b; margin-bottom: 6px; font-weight: 600;">CAMERA</div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 4px;">
+            <div class="keyframe-field">
+              <label style="font-size: 10px;">Pos X:</label>
+              <input type="number" id="keyframePosX" step="0.1" style="font-size: 11px; padding: 4px;">
+            </div>
+            <div class="keyframe-field">
+              <label style="font-size: 10px;">Pos Y:</label>
+              <input type="number" id="keyframePosY" step="0.1" style="font-size: 11px; padding: 4px;">
+            </div>
+            <div class="keyframe-field">
+              <label style="font-size: 10px;">Pos Z:</label>
+              <input type="number" id="keyframePosZ" step="0.1" style="font-size: 11px; padding: 4px;">
+            </div>
+            <div class="keyframe-field">
+              <label style="font-size: 10px;">Tgt X:</label>
+              <input type="number" id="keyframeTargetX" step="0.1" style="font-size: 11px; padding: 4px;">
+            </div>
+            <div class="keyframe-field">
+              <label style="font-size: 10px;">Tgt Y:</label>
+              <input type="number" id="keyframeTargetY" step="0.1" style="font-size: 11px; padding: 4px;">
+            </div>
+            <div class="keyframe-field">
+              <label style="font-size: 10px;">Tgt Z:</label>
+              <input type="number" id="keyframeTargetZ" step="0.1" style="font-size: 11px; padding: 4px;">
+            </div>
+          </div>
+        </div>
+        <div style="margin: 8px 0; padding: 8px; background: rgba(0,0,0,0.2); border-radius: 4px;">
+          <div style="font-size: 11px; color: #86868b; margin-bottom: 6px; font-weight: 600;">PARAMETERS</div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px;">
+            <div class="keyframe-field">
+              <label style="font-size: 10px;">Base Amp:</label>
+              <input type="number" id="keyframeBaseAmp" step="1" style="font-size: 11px; padding: 4px;">
+            </div>
+            <div class="keyframe-field">
+              <label style="font-size: 10px;">Audio Amp:</label>
+              <input type="number" id="keyframeAudioAmp" step="1" style="font-size: 11px; padding: 4px;">
+            </div>
+            <div class="keyframe-field">
+              <label style="font-size: 10px;">Particle Size:</label>
+              <input type="number" id="keyframeParticleSize" step="1" style="font-size: 11px; padding: 4px;">
+            </div>
+            <div class="keyframe-field">
+              <label style="font-size: 10px;">Wave Count:</label>
+              <input type="number" id="keyframeWaveCount" step="1" style="font-size: 11px; padding: 4px;">
+            </div>
+            <div class="keyframe-field">
+              <label style="font-size: 10px;">Wave Density:</label>
+              <input type="number" id="keyframeWaveDensity" step="1" style="font-size: 11px; padding: 4px;">
+            </div>
+            <div class="keyframe-field">
+              <label style="font-size: 10px;">Wave Speed:</label>
+              <input type="number" id="keyframeWaveSpeed" step="1" style="font-size: 11px; padding: 4px;">
+            </div>
+            <div class="keyframe-field">
+              <label style="font-size: 10px;">Max Height:</label>
+              <input type="number" id="keyframeMaxHeightBound" step="1" min="5" max="200" style="font-size: 11px; padding: 4px;">
+            </div>
+            <div class="keyframe-field">
+              <label style="font-size: 10px;">Color Profile:</label>
+              <input type="number" id="keyframeColorProfile" step="1" min="0" max="4" style="font-size: 11px; padding: 4px;">
+            </div>
+            <div class="keyframe-field">
+              <label style="font-size: 10px;">Grid Reps:</label>
+              <input type="number" id="keyframeGridReps" step="1" min="1" max="5" style="font-size: 11px; padding: 4px;">
+            </div>
+            <div class="keyframe-field">
+              <label style="font-size: 10px;">Grid Off X:</label>
+              <input type="number" id="keyframeGridOffX" step="1" style="font-size: 11px; padding: 4px;">
+            </div>
+            <div class="keyframe-field">
+              <label style="font-size: 10px;">Grid Off Z:</label>
+              <input type="number" id="keyframeGridOffZ" step="1" style="font-size: 11px; padding: 4px;">
+            </div>
+            <div class="keyframe-field">
+              <label style="font-size: 10px;">True Off X:</label>
+              <input type="number" id="keyframeTrueOffX" step="1" style="font-size: 11px; padding: 4px;">
+            </div>
+            <div class="keyframe-field">
+              <label style="font-size: 10px;">True Off Z:</label>
+              <input type="number" id="keyframeTrueOffZ" step="1" style="font-size: 11px; padding: 4px;">
+            </div>
+            <div class="keyframe-field">
+              <label style="font-size: 10px;">FOV:</label>
+              <input type="number" id="keyframeFov" step="1" min="30" max="120" style="font-size: 11px; padding: 4px;">
+            </div>
+            <div class="keyframe-field">
+              <label style="font-size: 10px;">Video Impact:</label>
+              <input type="number" id="keyframeVideoImpact" step="1" style="font-size: 11px; padding: 4px;">
+            </div>
+            <div class="keyframe-field">
+              <label style="font-size: 10px;">Invert Video:</label>
+              <button id="keyframeInvertVideoBtn" style="padding: 4px 8px; font-size: 11px;">Off</button>
+            </div>
+            <div class="keyframe-field">
+              <label style="font-size: 10px;">Auto Rotate X:</label>
+              <input type="checkbox" id="keyframeAutoRotateX" style="width: auto;">
+            </div>
+            <div class="keyframe-field">
+              <label style="font-size: 10px;">Auto Rotate Y:</label>
+              <input type="checkbox" id="keyframeAutoRotateY" style="width: auto;">
+            </div>
+            <div class="keyframe-field">
+              <label style="font-size: 10px;">Cam Roll:</label>
+              <input type="number" id="keyframeCamRoll" step="1" style="font-size: 11px; padding: 4px;">
+            </div>
+            <div class="keyframe-field">
+              <label style="font-size: 10px;">Cam Shake:</label>
+              <input type="number" id="keyframeCamShake" step="0.1" style="font-size: 11px; padding: 4px;">
+            </div>
+            <div class="keyframe-field">
+              <label style="font-size: 10px;">Cam Dolly:</label>
+              <input type="number" id="keyframeCamDolly" step="0.1" style="font-size: 11px; padding: 4px;">
+            </div>
+          </div>
+        </div>
+
+        <div class="keyframe-actions">
+          <button id="keyframeUpdate">Update</button>
+          <button id="keyframeUpdateFromView">Update from View</button>
+          <button id="keyframeDelete" class="danger">Delete</button>
+        </div>
+      </div>
+    </div>
+    <input type="file" id="timelineFileInput" accept=".json" style="display: none;">
+  </div>
+  <script>
+    console.log('HTML loaded');
+    console.log('Body background:', window.getComputedStyle(document.body).background);
+    console.log('Body computed styles:', window.getComputedStyle(document.body));
+  </script>
+  <script type="module" src="main.js"></script>
+</body>
+</html>
