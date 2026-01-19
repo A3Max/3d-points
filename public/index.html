@@ -7,6 +7,11 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Urbanist:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <script>
+    var basePath = window.location.pathname.endsWith('.html')
+      ? window.location.pathname.replace(/\/[^\/]*$/, '')
+      : window.location.pathname;
+  </script>
   <script type="importmap">
     {
       "imports": {
@@ -926,6 +931,12 @@
           </label>
         </div>
       </div>
+      <div class="control-group">
+        <div class="button-group">
+          <button id="wavePlayBtn">Play Wave</button>
+          <button id="wavePauseBtn">Pause Wave</button>
+        </div>
+      </div>
     </div>
 
     <div class="control-section">
@@ -1257,6 +1268,8 @@
     console.log('Body background:', window.getComputedStyle(document.body).background);
     console.log('Body computed styles:', window.getComputedStyle(document.body));
   </script>
-  <script type="module" src="main.js"></script>
+  <script>
+    document.write('<script type="module" src="' + window.location.origin + basePath + '/main.js"><\/script>');
+  </script>
 </body>
 </html>

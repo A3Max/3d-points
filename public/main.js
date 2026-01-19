@@ -7,6 +7,9 @@ let scene, camera, renderer, particles, geometry, controls;
 let audioContext, analyser, dataArray, source, audioBuffer;
 let isPlaying = false;
 let gridGroup;
+let waveIsPlaying = true;
+let waveTime = 0;
+let lastWaveTime = 0;
 
 const GRID_SIZE = 100;
 const PARTICLE_COUNT = GRID_SIZE * GRID_SIZE;
@@ -700,6 +703,14 @@ function setupControls() {
 
   document.getElementById('playBtn').addEventListener('click', playAudio);
   document.getElementById('pauseBtn').addEventListener('click', pauseAudio);
+
+  document.getElementById('wavePlayBtn').addEventListener('click', () => {
+    waveIsPlaying = true;
+    lastWaveTime = performance.now() / 1000;
+  });
+  document.getElementById('wavePauseBtn').addEventListener('click', () => {
+    waveIsPlaying = false;
+  });
 
   const uiToggleBtn = document.getElementById('ui-toggle-btn');
   let mouseTimeout;
@@ -1664,8 +1675,13 @@ function animate() {
   const deltaTime = now - (timelineState.lastFrameTime || now);
   timelineState.lastFrameTime = now;
   
-  const time = Date.now() * 0.001;
-  updateParticles(time);
+  const currentTime = now / 1000;
+  if (waveIsPlaying) {
+    waveTime += currentTime - lastWaveTime;
+  }
+  lastWaveTime = currentTime;
+  
+  updateParticles(waveTime);
   
   if (timelineState.isPlaying) {
     updateTimelinePlayback(deltaTime);
